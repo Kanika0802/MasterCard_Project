@@ -8,7 +8,11 @@
     "start": "node simulator/src/server.js",
     "migrate": "node simulator/src/infrastructure/postgres/migrator.js",
     "mongo:init": "node simulator/src/infrastructure/mongodb/init.js",
-    "test": "node --test simulator/tests/**/*.test.js"
+    "test": "node --test simulator/tests/**/*.test.js",
+    "test:m2": "node --test redteam/tests/**/*.test.js",
+    "test:m2:unit": "node --test redteam/tests/unit/*.test.js",
+    "test:m2:integration": "node --test redteam/tests/integration/*.test.js",
+    "test:all": "node --test simulator/tests/**/*.test.js redteam/tests/**/*.test.js"
   },
   "keywords": [],
   "author": "",
