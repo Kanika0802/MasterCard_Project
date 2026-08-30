@@ -1,0 +1,1359 @@
+openapi: 3.0.3
+info:
+  title: Synthetic Banking Simulator API
+  version: 1.0.0
+  description: |
+    API contract for M1 — Synthetic Banking Simulator.
+
+    The project SDD specifies the /api/v1/simulator namespace and CRUD-style
+    operations for users, accounts, transactions, devices, KYC, beneficiaries,
+    and authentication events. The detailed request/response schemas below are
+    proposed engineering contracts derived from the M1 domain model because the
+    SDD does not fully specify field-level API schemas.
+
+    IMPORTANT:
+    - This API operates only on synthetic simulation data.
+    - The simulator records banking behavior; it does not classify fraud.
+    - Future Red Team components should use these APIs/action interfaces rather
+      than writing directly to the simulator databases.
+
+servers:
+  - url: http://localhost:3000
+    description: Local simulator development server
+
+tags:
+  - name: Users
+  - name: Accounts
+  - name: Transactions
+  - name: Devices
+  - name: KYC
+  - name: Beneficiaries
+  - name: Authentication Events
+  - name: Simulation
+
+paths:
+
+  /api/v1/simulator/users:
+    get:
+      tags: [Users]
+      summary: List users
+      responses:
+        '200':
+          description: Users returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Users]
+      summary: Create a synthetic user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Duplicate user data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/simulator/users/{user_id}:
+    get:
+      tags: [Users]
+      summary: Get a user
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Users]
+      summary: Update a user
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Users]
+      summary: Deactivate a user
+      description: |
+        Logical deactivation is preferred so financial history is not destroyed.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: User deactivated
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/simulator/accounts:
+    get:
+      tags: [Accounts]
+      summary: List accounts
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+      responses:
+        '200':
+          description: Accounts returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountListResponse'
+    post:
+      tags: [Accounts]
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/simulator/accounts/{account_id}:
+    get:
+      tags: [Accounts]
+      summary: Get an account
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: Account returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Accounts]
+      summary: Update account status
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAccountRequest'
+      responses:
+        '200':
+          description: Account updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Accounts]
+      summary: Close an account
+      description: Logical closure is preferred over destructive deletion.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '204':
+          description: Account closed
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/simulator/transactions:
+    get:
+      tags: [Transactions]
+      summary: List transactions
+      parameters:
+        - $ref: '#/components/parameters/AccountIdQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/ExperimentIdQuery'
+      responses:
+        '200':
+          description: Transactions returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionListResponse'
+    post:
+      tags: [Transactions]
+      summary: Create and process a synthetic transaction
+      description: |
+        The transaction service validates the transaction, applies the financial
+        state transition, and creates corresponding ledger entries. Successful
+        financial state changes must be atomic.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionRequest'
+      responses:
+        '201':
+          description: Transaction created/accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Idempotency or state conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/simulator/transactions/{transaction_id}:
+    get:
+      tags: [Transactions]
+      summary: Get a transaction
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+      responses:
+        '200':
+          description: Transaction returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Transactions]
+      summary: Update transaction state
+      description: |
+        Intended for controlled simulator state transitions. Production-style
+        arbitrary mutation of completed financial records must not be allowed.
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTransactionRequest'
+      responses:
+        '200':
+          description: Transaction state updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Transactions]
+      summary: Remove transaction from a test simulation
+      description: |
+        Destructive deletion should be restricted to explicit reset/test workflows.
+        Normal financial history should remain queryable.
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+      responses:
+        '204':
+          description: Transaction removed from test data
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/simulator/devices:
+    get:
+      tags: [Devices]
+      summary: List devices
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+      responses:
+        '200':
+          description: Devices returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceListResponse'
+    post:
+      tags: [Devices]
+      summary: Register a synthetic device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeviceRequest'
+      responses:
+        '201':
+          description: Device registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/simulator/devices/{device_id}:
+    get:
+      tags: [Devices]
+      summary: Get a device
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      responses:
+        '200':
+          description: Device returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Devices]
+      summary: Update device metadata/status
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceRequest'
+      responses:
+        '200':
+          description: Device updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Devices]
+      summary: Retire a device
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      responses:
+        '204':
+          description: Device retired
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/simulator/kycs:
+    get:
+      tags: [KYC]
+      summary: List KYC records
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/KycStatusQuery'
+      responses:
+        '200':
+          description: KYC records returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycListResponse'
+    post:
+      tags: [KYC]
+      summary: Create a synthetic KYC record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateKycRequest'
+      responses:
+        '201':
+          description: KYC record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/simulator/kycs/{kyc_id}:
+    get:
+      tags: [KYC]
+      summary: Get a KYC record
+      parameters:
+        - $ref: '#/components/parameters/KycId'
+      responses:
+        '200':
+          description: KYC returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [KYC]
+      summary: Update KYC status/metadata
+      parameters:
+        - $ref: '#/components/parameters/KycId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateKycRequest'
+      responses:
+        '200':
+          description: KYC updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [KYC]
+      summary: Remove KYC from test simulation
+      parameters:
+        - $ref: '#/components/parameters/KycId'
+      responses:
+        '204':
+          description: KYC removed from test data
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/simulator/beneficiaries:
+    get:
+      tags: [Beneficiaries]
+      summary: List beneficiaries
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+      responses:
+        '200':
+          description: Beneficiaries returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeneficiaryListResponse'
+    post:
+      tags: [Beneficiaries]
+      summary: Add a beneficiary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBeneficiaryRequest'
+      responses:
+        '201':
+          description: Beneficiary created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeneficiaryResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/simulator/beneficiaries/{beneficiary_id}:
+    get:
+      tags: [Beneficiaries]
+      summary: Get a beneficiary
+      parameters:
+        - $ref: '#/components/parameters/BeneficiaryId'
+      responses:
+        '200':
+          description: Beneficiary returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeneficiaryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Beneficiaries]
+      summary: Update beneficiary state
+      parameters:
+        - $ref: '#/components/parameters/BeneficiaryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBeneficiaryRequest'
+      responses:
+        '200':
+          description: Beneficiary updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeneficiaryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Beneficiaries]
+      summary: Disable a beneficiary
+      parameters:
+        - $ref: '#/components/parameters/BeneficiaryId'
+      responses:
+        '204':
+          description: Beneficiary disabled
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/simulator/auth_events:
+    get:
+      tags: [Authentication Events]
+      summary: List authentication events
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/DeviceIdQuery'
+      responses:
+        '200':
+          description: Authentication events returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthEventListResponse'
+    post:
+      tags: [Authentication Events]
+      summary: Record a simulated authentication event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAuthEventRequest'
+      responses:
+        '201':
+          description: Authentication event recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthEventResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/simulator/auth_events/{event_id}:
+    get:
+      tags: [Authentication Events]
+      summary: Get an authentication event
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Authentication event returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthEventResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Authentication Events]
+      summary: Remove an authentication event from test data
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '204':
+          description: Event removed from test data
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+
+  parameters:
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+    AccountId:
+      name: account_id
+      in: path
+      required: true
+      schema:
+        type: string
+    TransactionId:
+      name: transaction_id
+      in: path
+      required: true
+      schema:
+        type: string
+    DeviceId:
+      name: device_id
+      in: path
+      required: true
+      schema:
+        type: string
+    KycId:
+      name: kyc_id
+      in: path
+      required: true
+      schema:
+        type: string
+    BeneficiaryId:
+      name: beneficiary_id
+      in: path
+      required: true
+      schema:
+        type: string
+    EventId:
+      name: event_id
+      in: path
+      required: true
+      schema:
+        type: string
+    UserIdQuery:
+      name: user_id
+      in: query
+      required: false
+      schema:
+        type: string
+    AccountIdQuery:
+      name: account_id
+      in: query
+      required: false
+      schema:
+        type: string
+    DeviceIdQuery:
+      name: device_id
+      in: query
+      required: false
+      schema:
+        type: string
+    StatusQuery:
+      name: status
+      in: query
+      required: false
+      schema:
+        type: string
+    KycStatusQuery:
+      name: verification_status
+      in: query
+      required: false
+      schema:
+        type: string
+    ExperimentIdQuery:
+      name: experiment_id
+      in: query
+      required: false
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Unique key used to safely retry financial operations.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+
+  responses:
+    ValidationError:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid request payload
+            details:
+              type: object
+              additionalProperties: true
+
+    User:
+      type: object
+      required:
+        - user_id
+        - first_name
+        - last_name
+        - email
+        - profile_status
+        - created_at
+        - updated_at
+      properties:
+        user_id:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        address:
+          type: object
+          additionalProperties: true
+        occupation:
+          type: string
+        profile_status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateUserRequest:
+      type: object
+      required: [first_name, last_name, email]
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        address:
+          type: object
+          additionalProperties: true
+        occupation:
+          type: string
+
+    UpdateUserRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateUserRequest'
+
+    Account:
+      type: object
+      required:
+        - account_id
+        - user_id
+        - account_number
+        - account_type
+        - currency
+        - balance
+        - status
+        - created_at
+        - updated_at
+      properties:
+        account_id:
+          type: string
+        user_id:
+          type: string
+        account_number:
+          type: string
+        account_type:
+          type: string
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        balance:
+          type: number
+          format: double
+          minimum: 0
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, FROZEN, CLOSED]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateAccountRequest:
+      type: object
+      required: [user_id, account_type, currency]
+      properties:
+        user_id:
+          type: string
+        account_type:
+          type: string
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+
+    UpdateAccountRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, FROZEN, CLOSED]
+
+    Transaction:
+      type: object
+      required:
+        - transaction_id
+        - transaction_reference
+        - amount
+        - currency
+        - transaction_type
+        - channel
+        - status
+        - created_at
+      properties:
+        transaction_id:
+          type: string
+        transaction_reference:
+          type: string
+        sender_account_id:
+          type: string
+        receiver_account_id:
+          type: string
+        merchant_id:
+          type: string
+        initiator_user_id:
+          type: string
+        amount:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        transaction_type:
+          type: string
+        channel:
+          type: string
+        device_id:
+          type: string
+        location:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [INITIATED, AUTHORIZED, PROCESSING, COMPLETED, FAILED, REVERSED]
+        created_at:
+          type: string
+          format: date-time
+        authorized_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        failure_reason:
+          type: string
+          nullable: true
+        experiment_id:
+          type: string
+          nullable: true
+
+    CreateTransactionRequest:
+      type: object
+      required:
+        - sender_account_id
+        - initiator_user_id
+        - amount
+        - currency
+        - transaction_type
+        - channel
+      properties:
+        sender_account_id:
+          type: string
+        receiver_account_id:
+          type: string
+        merchant_id:
+          type: string
+        initiator_user_id:
+          type: string
+        amount:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        transaction_type:
+          type: string
+        channel:
+          type: string
+        device_id:
+          type: string
+        location:
+          type: object
+          additionalProperties: true
+        experiment_id:
+          type: string
+
+    UpdateTransactionRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [AUTHORIZED, PROCESSING, COMPLETED, FAILED, REVERSED]
+        failure_reason:
+          type: string
+
+    Device:
+      type: object
+      required:
+        - device_id
+        - user_id
+        - device_type
+        - status
+        - first_seen
+        - last_seen
+      properties:
+        device_id:
+          type: string
+        user_id:
+          type: string
+        device_type:
+          type: string
+        operating_system:
+          type: string
+        browser:
+          type: string
+        ip_address:
+          type: string
+        geo_location:
+          type: object
+          additionalProperties: true
+        device_fingerprint:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, BLOCKED, RETIRED]
+        first_seen:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
+
+    CreateDeviceRequest:
+      type: object
+      required: [user_id, device_type]
+      properties:
+        user_id:
+          type: string
+        device_type:
+          type: string
+        operating_system:
+          type: string
+        browser:
+          type: string
+        ip_address:
+          type: string
+        geo_location:
+          type: object
+          additionalProperties: true
+        device_fingerprint:
+          type: string
+
+    UpdateDeviceRequest:
+      type: object
+      properties:
+        operating_system:
+          type: string
+        browser:
+          type: string
+        ip_address:
+          type: string
+        geo_location:
+          type: object
+          additionalProperties: true
+        device_fingerprint:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, BLOCKED, RETIRED]
+
+    KycRecord:
+      type: object
+      required:
+        - kyc_id
+        - user_id
+        - document_type
+        - verification_status
+      properties:
+        kyc_id:
+          type: string
+        user_id:
+          type: string
+        document_type:
+          type: string
+        document_reference:
+          type: string
+        verification_status:
+          type: string
+          enum: [PENDING, VERIFIED, REJECTED, EXPIRED]
+        liveness_status:
+          type: string
+        risk_profile:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateKycRequest:
+      type: object
+      required: [user_id, document_type]
+      properties:
+        user_id:
+          type: string
+        document_type:
+          type: string
+        document_reference:
+          type: string
+        verification_status:
+          type: string
+          enum: [PENDING, VERIFIED, REJECTED, EXPIRED]
+        liveness_status:
+          type: string
+        risk_profile:
+          type: string
+
+    UpdateKycRequest:
+      type: object
+      properties:
+        document_type:
+          type: string
+        document_reference:
+          type: string
+        verification_status:
+          type: string
+          enum: [PENDING, VERIFIED, REJECTED, EXPIRED]
+        liveness_status:
+          type: string
+        risk_profile:
+          type: string
+
+    Beneficiary:
+      type: object
+      required:
+        - beneficiary_id
+        - user_id
+        - target_account_id
+        - status
+      properties:
+        beneficiary_id:
+          type: string
+        user_id:
+          type: string
+        target_account_id:
+          type: string
+        nickname:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, ACTIVE, DISABLED]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateBeneficiaryRequest:
+      type: object
+      required: [user_id, target_account_id]
+      properties:
+        user_id:
+          type: string
+        target_account_id:
+          type: string
+        nickname:
+          type: string
+
+    UpdateBeneficiaryRequest:
+      type: object
+      properties:
+        nickname:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, ACTIVE, DISABLED]
+
+    AuthEvent:
+      type: object
+      required:
+        - event_id
+        - user_id
+        - event_type
+        - timestamp
+      properties:
+        event_id:
+          type: string
+        user_id:
+          type: string
+        device_id:
+          type: string
+        event_type:
+          type: string
+          enum:
+            - LOGIN_REQUESTED
+            - LOGIN_SUCCESS
+            - LOGIN_FAILED
+            - OTP_REQUESTED
+            - OTP_VERIFIED
+            - OTP_FAILED
+            - PASSWORD_RESET
+            - SESSION_CREATED
+            - SESSION_EXPIRED
+            - LOGOUT
+            - DEVICE_REGISTERED
+        timestamp:
+          type: string
+          format: date-time
+        simulation_id:
+          type: string
+        experiment_id:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    CreateAuthEventRequest:
+      type: object
+      required: [user_id, event_type]
+      properties:
+        user_id:
+          type: string
+        device_id:
+          type: string
+        event_type:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        simulation_id:
+          type: string
+        experiment_id:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/User'
+
+    UserListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+
+    AccountResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Account'
+
+    AccountListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+
+    TransactionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Transaction'
+
+    TransactionListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+
+    DeviceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Device'
+
+    DeviceListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+
+    KycResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/KycRecord'
+
+    KycListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/KycRecord'
+
+    BeneficiaryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Beneficiary'
+
+    BeneficiaryListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Beneficiary'
+
+    AuthEventResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/AuthEvent'
+
+    AuthEventListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthEvent'

@@ -1,0 +1,454 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "m1-event-contract-v1",
+  "title": "Adversarial GenAI Framework - M1 Simulator Event Contract",
+  "version": "1.0.0",
+  "description": "Canonical event envelope for synthetic banking simulator events. The SDD explicitly specifies Simulator -> Kafka -> Stream Processor; detailed field-level schemas and Kafka topic names below are engineering proposals.",
+  "source_alignment": {
+    "explicit_sdd": [
+      "Apache Kafka decouples the simulator from the Blue Team.",
+      "Simulator events flow to Kafka and then to a stream processor.",
+      "The stream processor feeds PostgreSQL, Neo4j Graph and Redis Feature Store.",
+      "Simulator APIs include users, accounts, transactions, devices, KYC, beneficiaries and authentication events.",
+      "The SDD includes adversarial actions such as OTP interception, deepfake video, synthetic documents, mule-network additions, transaction splitting and device-fingerprint spoofing."
+    ],
+    "proposed": [
+      "Common event envelope",
+      "Event type names",
+      "Kafka topic names",
+      "Payload schemas",
+      "Schema-versioning rules",
+      "Partition-key and delivery strategy"
+    ]
+  },
+  "event_envelope_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "event_id",
+      "event_type",
+      "event_version",
+      "occurred_at",
+      "simulation_id",
+      "experiment_id",
+      "source",
+      "entity_type",
+      "entity_id",
+      "payload"
+    ],
+    "properties": {
+      "event_id": {
+        "type": "string"
+      },
+      "event_type": {
+        "type": "string"
+      },
+      "event_version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "occurred_at": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "simulation_time": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date-time"
+      },
+      "simulation_id": {
+        "type": "string"
+      },
+      "experiment_id": {
+        "type": "string"
+      },
+      "source": {
+        "type": "string",
+        "const": "bank_simulator"
+      },
+      "entity_type": {
+        "type": "string",
+        "enum": [
+          "user",
+          "account",
+          "transaction",
+          "device",
+          "kyc",
+          "beneficiary",
+          "auth_event",
+          "simulation"
+        ]
+      },
+      "entity_id": {
+        "type": "string"
+      },
+      "actor_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "device_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "correlation_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "causation_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "idempotency_key": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "payload": {
+        "type": "object"
+      },
+      "adversarial_metadata": {
+        "type": [
+          "object",
+          "null"
+        ]
+      }
+    }
+  },
+  "event_types": {
+    "USER_CREATED": "Synthetic user created",
+    "USER_UPDATED": "Synthetic user updated",
+    "USER_DEACTIVATED": "Synthetic user deactivated",
+    "ACCOUNT_CREATED": "Synthetic account created",
+    "ACCOUNT_STATUS_CHANGED": "Account status changed",
+    "ACCOUNT_CLOSED": "Account closed",
+    "BENEFICIARY_ADDED": "Beneficiary added",
+    "BENEFICIARY_UPDATED": "Beneficiary updated",
+    "BENEFICIARY_DISABLED": "Beneficiary disabled",
+    "DEVICE_REGISTERED": "Device registered",
+    "DEVICE_UPDATED": "Device metadata/status changed",
+    "DEVICE_RETIRED": "Device retired",
+    "KYC_CREATED": "KYC record created",
+    "KYC_UPDATED": "KYC record updated",
+    "KYC_DELETED": "KYC record removed from test data",
+    "AUTH_LOGIN_REQUESTED": "Login initiated",
+    "AUTH_LOGIN_SUCCESS": "Login succeeded",
+    "AUTH_LOGIN_FAILED": "Login failed",
+    "AUTH_OTP_REQUESTED": "OTP requested",
+    "AUTH_OTP_VERIFIED": "OTP verified",
+    "AUTH_OTP_FAILED": "OTP verification failed",
+    "AUTH_PASSWORD_RESET": "Password reset flow occurred",
+    "AUTH_SESSION_CREATED": "Session created",
+    "AUTH_SESSION_EXPIRED": "Session expired",
+    "AUTH_LOGOUT": "Logout occurred",
+    "TRANSACTION_INITIATED": "Transaction initiated",
+    "TRANSACTION_AUTHORIZED": "Transaction authorized",
+    "TRANSACTION_PROCESSING": "Transaction entered processing",
+    "TRANSACTION_COMPLETED": "Transaction completed",
+    "TRANSACTION_FAILED": "Transaction failed",
+    "TRANSACTION_REVERSED": "Transaction reversed",
+    "SIMULATION_STARTED": "Simulation started",
+    "SIMULATION_COMPLETED": "Simulation completed",
+    "SIMULATION_FAILED": "Simulation failed"
+  },
+  "payload_schemas": {
+    "transaction": {
+      "type": "object",
+      "required": [
+        "transaction_id",
+        "amount",
+        "currency",
+        "transaction_type",
+        "channel",
+        "status"
+      ],
+      "properties": {
+        "transaction_id": {
+          "type": "string"
+        },
+        "sender_account_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receiver_account_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "merchant_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "initiator_user_id": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 3
+        },
+        "transaction_type": {
+          "type": "string"
+        },
+        "channel": {
+          "type": "string"
+        },
+        "device_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "location": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "failure_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "experiment_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "auth_event": {
+      "type": "object",
+      "required": [
+        "event_id",
+        "user_id",
+        "event_type",
+        "timestamp"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "device_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "event_type": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    },
+    "device": {
+      "type": "object",
+      "required": [
+        "device_id",
+        "user_id",
+        "device_type",
+        "status"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "device_type": {
+          "type": "string"
+        },
+        "operating_system": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "browser": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ip_address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "geo_location": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "device_fingerprint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "kyc": {
+      "type": "object",
+      "required": [
+        "kyc_id",
+        "user_id",
+        "document_type",
+        "verification_status"
+      ],
+      "properties": {
+        "kyc_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "document_type": {
+          "type": "string"
+        },
+        "document_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "verification_status": {
+          "type": "string"
+        },
+        "liveness_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "risk_profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  },
+  "adversarial_metadata": {
+    "purpose": "Optional provenance for controlled Red Team experiments. It is not a Blue Team fraud label.",
+    "properties": {
+      "attack_scenario_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "primitive_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "attack_family": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "generated_by": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "step_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "known_sdd_primitives": [
+      "AUTH_OTP_INTERCEPT_9",
+      "MEDIA_DEEPFAKE_VIDEO_9",
+      "DOC_SYNTHETIC_ID_9",
+      "NETWORK_MULE_ADD_9",
+      "TXN_SPLIT_VELOCITY_9",
+      "DEVICE_FINGERPRINT_SPOOF_9",
+      "SOCIAL_ENG_PHISH_9",
+      "SESSION_HIJACK_COOKIE_9"
+    ]
+  },
+  "kafka_contract": {
+    "flow": "Simulator -> Kafka -> Stream Processor",
+    "proposed_topics": [
+      "simulator.users.v1",
+      "simulator.accounts.v1",
+      "simulator.transactions.v1",
+      "simulator.devices.v1",
+      "simulator.kyc.v1",
+      "simulator.beneficiaries.v1",
+      "simulator.auth.v1",
+      "simulator.simulations.v1"
+    ],
+    "proposed_partition_key": "entity_id",
+    "proposed_delivery_semantics": "at-least-once",
+    "consumer_requirement": "Consumers must be idempotent using event_id and/or idempotency_key."
+  },
+  "rules": [
+    "event_id must be unique within the simulator event stream.",
+    "event_version starts at 1 and changes for incompatible event-schema changes.",
+    "occurred_at is wall-clock event creation time.",
+    "simulation_time is the controlled simulation clock when applicable.",
+    "simulation_id and experiment_id identify the experiment context.",
+    "Events describe simulator state changes; they do not themselves constitute fraud decisions.",
+    "Adversarial metadata identifies controlled experiment provenance.",
+    "Financial state changes must be committed atomically before their corresponding events are published.",
+    "Historical events are immutable.",
+    "Consumers must tolerate duplicate delivery."
+  ],
+  "implementation_notes": [
+    "Create one EventEnvelope type in the simulator.",
+    "Create an EventPublisher interface so domain services do not depend directly on Kafka clients.",
+    "Validate events before publishing.",
+    "Add contract tests for each event type.",
+    "Add duplicate-delivery and ordering tests.",
+    "Keep event types and topic names centralized in configuration/constants."
+  ],
+  "next_artifact": "05_event_publisher_design.md"
+}

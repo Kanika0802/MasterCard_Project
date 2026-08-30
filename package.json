@@ -1,0 +1,27 @@
+{
+  "name": "aipaysec",
+  "version": "1.0.0",
+  "description": "Adversarial GenAI Framework for Proactive Testing of Payment-Fraud Defenses",
+  "main": "simulator/src/server.js",
+  "scripts": {
+    "dev": "nodemon simulator/src/server.js",
+    "start": "node simulator/src/server.js",
+    "migrate": "node simulator/src/infrastructure/postgres/migrator.js",
+    "mongo:init": "node simulator/src/infrastructure/mongodb/init.js",
+    "test": "node --test simulator/tests/**/*.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "kafkajs": "^2.2.4",
+    "mongodb": "^7.6.0",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
