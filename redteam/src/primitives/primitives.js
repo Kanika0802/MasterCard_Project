@@ -333,6 +333,169 @@ const PRIMITIVES = [
         tags: ["account", "status", "ato", "freeze", "unfreeze"]
     },
 
+    {
+        primitive_id: "PRIM_MERCHANT_FRAUD_PAYMENT",
+        name: "Execute Fraudulent Merchant Payment",
+        description:
+            "Perform a fraudulent merchant payment transaction from a victim's account to a merchant. " +
+            "Simulates unauthorized point-of-sale, e-commerce, or collusive merchant transactions.",
+        simulator_action: "PERFORM_TRANSACTION",
+        category: "TRANSACTION",
+        attack_family: "MERCHANT_FRAUD",
+        required_parameters: [
+            {
+                name: "sender_account_id",
+                type: "string",
+                description: "ID of the victim account to debit"
+            },
+            {
+                name: "merchant_id",
+                type: "string",
+                description: "ID of the target merchant receiving the payment"
+            },
+            {
+                name: "initiator_user_id",
+                type: "string",
+                description: "ID of the user initiating the payment"
+            },
+            {
+                name: "amount",
+                type: "number",
+                description: "Payment amount (must be positive)"
+            }
+        ],
+        optional_parameters: [
+            {
+                name: "currency",
+                type: "string",
+                description: "3-character ISO currency code",
+                default: "USD"
+            },
+            {
+                name: "channel",
+                type: "string",
+                description: "Transaction channel (POS_TERMINAL, WEB_PORTAL, MOBILE_APP)",
+                default: "POS_TERMINAL"
+            },
+            {
+                name: "device_id",
+                type: "string",
+                description: "Device ID used for the transaction",
+                default: null
+            }
+        ],
+        expected_success_events: ["TRANSACTION_COMPLETED"],
+        expected_failure_events: ["TRANSACTION_FAILED"],
+        preconditions: [
+            "Sender account must exist and be ACTIVE with sufficient funds",
+            "Target merchant must exist in the simulator"
+        ],
+        postconditions: [
+            "Funds debited from sender_account_id and credited to merchant",
+            "LEDGER_ENTRY_CREATED events generated"
+        ],
+        is_abstract: false,
+        version: "1.0.0",
+        tags: ["merchant", "pos", "fraud", "e-commerce"]
+    },
+
+    {
+        primitive_id: "PRIM_ATM_FRAUD_WITHDRAWAL",
+        name: "Execute Fraudulent ATM Cash-Out",
+        description:
+            "Perform an unauthorized ATM cash withdrawal from a victim account. " +
+            "Simulates skimming, card cloning, or ATM cash-out attacks.",
+        simulator_action: "PERFORM_TRANSACTION",
+        category: "TRANSACTION",
+        attack_family: "ACCOUNT_TAKEOVER",
+        required_parameters: [
+            {
+                name: "sender_account_id",
+                type: "string",
+                description: "ID of the account to withdraw cash from"
+            },
+            {
+                name: "initiator_user_id",
+                type: "string",
+                description: "ID of the victim user whose card/account is being debited"
+            },
+            {
+                name: "amount",
+                type: "number",
+                description: "Withdrawal amount"
+            }
+        ],
+        optional_parameters: [
+            {
+                name: "currency",
+                type: "string",
+                description: "3-character ISO currency code",
+                default: "USD"
+            },
+            {
+                name: "channel",
+                type: "string",
+                description: "Transaction channel (must be ATM)",
+                default: "ATM"
+            }
+        ],
+        expected_success_events: ["TRANSACTION_COMPLETED"],
+        expected_failure_events: ["TRANSACTION_FAILED"],
+        preconditions: [
+            "Account must exist and be ACTIVE with sufficient funds"
+        ],
+        postconditions: [
+            "Funds debited via ATM channel",
+            "LEDGER_ENTRY_CREATED events generated"
+        ],
+        is_abstract: false,
+        version: "1.0.0",
+        tags: ["atm", "cash-out", "skimming", "withdrawal"]
+    },
+
+    {
+        primitive_id: "PRIM_SIMULATE_FAILED_LOGIN",
+        name: "Simulate Failed Login Attempt",
+        description:
+            "Explicitly simulate a failed authentication event for credential stuffing, " +
+            "password spraying, or brute-force pattern generation.",
+        simulator_action: "SIMULATE_LOGIN",
+        category: "AUTHENTICATION",
+        attack_family: "ACCOUNT_TAKEOVER",
+        required_parameters: [
+            {
+                name: "user_id",
+                type: "string",
+                description: "Target user ID being attacked"
+            }
+        ],
+        optional_parameters: [
+            {
+                name: "device_id",
+                type: "string",
+                description: "Device ID generating the failed attempt",
+                default: null
+            },
+            {
+                name: "success",
+                type: "boolean",
+                description: "Always false for failed attempt simulation",
+                default: false
+            }
+        ],
+        expected_success_events: ["AUTH_LOGIN_FAILED"],
+        expected_failure_events: ["VALIDATION_ERROR"],
+        preconditions: [
+            "Target user must exist in the simulator"
+        ],
+        postconditions: [
+            "AUTH_LOGIN_FAILED event logged in MongoDB auth_events"
+        ],
+        is_abstract: false,
+        version: "1.0.0",
+        tags: ["brute-force", "credential-stuffing", "login-failed"]
+    },
+
     // =========================================================================
     // ABSTRACT PRIMITIVES (no M1 backing — documented for future extension)
     // =========================================================================

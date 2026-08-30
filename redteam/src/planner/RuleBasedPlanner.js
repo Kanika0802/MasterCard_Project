@@ -25,7 +25,7 @@ const { ValidationError } = require("../../../simulator/src/domain/errors");
 const FAMILY_KEYWORDS = {
     ACCOUNT_TAKEOVER: [
         "ato", "account takeover", "takeover", "stolen credentials", "brute force",
-        "credential", "login", "unauthorized access", "hijack", "session"
+        "credential", "login", "unauthorized access", "hijack", "session", "atm", "cash-out"
     ],
     MULE_NETWORK: [
         "mule", "beneficiary", "fund siphoning", "drain", "transfer", "money transfer", "launder"
@@ -35,6 +35,9 @@ const FAMILY_KEYWORDS = {
     ],
     IDENTITY_FRAUD: [
         "kyc", "identity", "synthetic id", "fake identity", "document", "verification bypass"
+    ],
+    MERCHANT_FRAUD: [
+        "merchant", "pos", "point of sale", "e-commerce", "collusion", "unauthorized purchase"
     ]
 };
 
@@ -157,6 +160,9 @@ class RuleBasedPlanner extends PlannerInterface {
         const victimAccount = victimAccounts[0] || null;
         const muleAccount = muleAccounts[0] || accounts.find(a => a !== victimAccount) || null;
 
+        const merchants = available_entities.merchants || [];
+        const merchant = merchants[0] || { merchant_id: "mch_synthetic_001" };
+
         // Build context map matching the strategy's required variables.
         const context = {
             simulation_id,
@@ -168,16 +174,18 @@ class RuleBasedPlanner extends PlannerInterface {
             if (varName.includes("victim_user")) context[varName] = victimUser?.user_id || null;
             else if (varName.includes("victim_account")) context[varName] = victimAccount?.account_id || null;
             else if (varName.includes("mule_account")) context[varName] = muleAccount?.account_id || null;
+            else if (varName.includes("dormant_account")) context[varName] = victimAccount?.account_id || null;
             else if (varName.includes("mule_user")) context[varName] = muleUser?.user_id || null;
+            else if (varName.includes("target_merchant")) context[varName] = merchant?.merchant_id || "mch_synthetic_001";
             else if (varName.includes("kyc_id")) context[varName] = null; // abstract, skip
             else if (varName.includes("target_user")) context[varName] = victimUser?.user_id || null;
             else if (varName.includes("target_account")) context[varName] = victimAccount?.account_id || null;
             else if (varName.includes("target_kyc")) context[varName] = null;
             else if (varName.includes("attacker_ip")) context[varName] = "198.51.100.99";
-            else if (varName.includes("drain_amount") || varName.includes("transfer_amount"))
+            else if (varName.includes("drain_amount") || varName.includes("transfer_amount") || varName.includes("payment_amount"))
                 context[varName] = this._calcAmount(victimAccount, constraints);
-            else if (varName.includes("split_amount"))
-                context[varName] = Math.round(this._calcAmount(victimAccount, constraints) / 3);
+            else if (varName.includes("cash_amount") || varName.includes("split_amount"))
+                context[varName] = Math.round(this._calcAmount(victimAccount, constraints) / 2);
             else context[varName] = null;
         }
 
