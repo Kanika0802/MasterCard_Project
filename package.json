@@ -10,7 +10,11 @@
     "mongo:init": "node simulator/src/infrastructure/mongodb/init.js",
     "test": "node --test simulator/tests/**/*.test.js red-team/tests/**/*.test.js",
     "test:simulator": "node --test simulator/tests/**/*.test.js",
-    "test:redteam": "node --test red-team/tests/**/*.test.js"
+    "test:redteam": "node --test red-team/tests/**/*.test.js",
+    "test:m2": "node --test redteam/tests/**/*.test.js",
+    "test:m2:unit": "node --test redteam/tests/unit/*.test.js",
+    "test:m2:integration": "node --test redteam/tests/integration/*.test.js",
+    "test:all": "node --test simulator/tests/**/*.test.js redteam/tests/**/*.test.js"
   },
   "keywords": [],
   "author": "",
