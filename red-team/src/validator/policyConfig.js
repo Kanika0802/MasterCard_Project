@@ -62,6 +62,44 @@ const DEFAULT_PRIMITIVE_CATALOG = Object.freeze({
     "MERCHANT_INFILTRATE_9": {
         name: "Merchant Settlement Hijack",
         allowed_actions: ["PERFORM_TRANSACTION", "CHANGE_ACCOUNT_STATUS"]
+    },
+
+    // ── M2 Person 2 Attack Intelligence Primitives ─────────────────
+    "PRIM_ADD_MULE_BENEFICIARY": {
+        name: "Add Mule Beneficiary",
+        allowed_actions: ["ADD_BENEFICIARY"]
+    },
+    "PRIM_EXECUTE_FRAUDULENT_TRANSFER": {
+        name: "Execute Fraudulent Transfer",
+        allowed_actions: ["PERFORM_TRANSACTION"]
+    },
+    "PRIM_ACCOUNT_TAKEOVER_LOGIN": {
+        name: "Simulate Account Takeover Login",
+        allowed_actions: ["SIMULATE_LOGIN"]
+    },
+    "PRIM_REGISTER_SPOOFED_DEVICE": {
+        name: "Register Spoofed Device",
+        allowed_actions: ["REGISTER_DEVICE"]
+    },
+    "PRIM_TAMPER_KYC_VERIFICATION": {
+        name: "Tamper with KYC Verification Status",
+        allowed_actions: ["UPDATE_KYC"]
+    },
+    "PRIM_MANIPULATE_ACCOUNT_STATUS": {
+        name: "Manipulate Account Status",
+        allowed_actions: ["CHANGE_ACCOUNT_STATUS"]
+    },
+    "PRIM_MERCHANT_FRAUD_PAYMENT": {
+        name: "Execute Fraudulent Merchant Payment",
+        allowed_actions: ["PERFORM_TRANSACTION"]
+    },
+    "PRIM_ATM_FRAUD_WITHDRAWAL": {
+        name: "Execute Fraudulent ATM Cash-Out",
+        allowed_actions: ["PERFORM_TRANSACTION"]
+    },
+    "PRIM_SIMULATE_FAILED_LOGIN": {
+        name: "Simulate Failed Login Attempt",
+        allowed_actions: ["SIMULATE_LOGIN"]
     }
 });
 

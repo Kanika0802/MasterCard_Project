@@ -13,9 +13,16 @@
 
 "use strict";
 
+const crypto = require("crypto");
 const { ValidationError } = require("../../simulator/src/domain/errors");
 const { validateAttackScenario, VALID_STATUS } = require("./schemas/AttackScenario");
 const { getDefaultRegistry: getDefaultPrimitiveRegistry } = require("./primitives/registry");
+
+// P1 Domain Models for adapter translation
+const AttackScenario = require("../../red-team/src/domain/attack/AttackScenario");
+const AttackStep = require("../../red-team/src/domain/attack/AttackStep");
+const AttackTarget = require("../../red-team/src/domain/attack/AttackTarget");
+const ExecutionContext = require("../../red-team/src/domain/execution/ExecutionContext");
 
 // The only supported schema version Person 1 can consume.
 const SUPPORTED_SCENARIO_VERSION = "1.0.0";
@@ -120,6 +127,141 @@ class ScenarioHandler {
      */
     getSortedSteps(scenario) {
         return [...scenario.steps].sort((a, b) => a.step_index - b.step_index);
+    }
+
+    /**
+     * Convert a validated P2 AttackScenario into a canonical P1 AttackScenario domain instance.
+     *
+     * Performs:
+     *   - Validation assertion via assertConsumable(scenario)
+     *   - Mapping of semver version -> integer version
+     *   - Objective resolution from scenario.objective || scenario.description || scenario.name
+     *   - Focal target extraction from target_entities (preserving full entities in metadata)
+     *   - Step transformation: resolves primitive_id -> action, normalizes depends_on array and timeout_ms
+     *   - Structured metadata and constraints consolidation
+     *
+     * @param {object} scenario - A VALIDATED P2 AttackScenario
+     * @returns {AttackScenario} Canonical P1 AttackScenario domain model instance
+     * @throws {ValidationError} if scenario fails consumable assertion
+     */
+    toP1Scenario(scenario) {
+        this.assertConsumable(scenario);
+
+        const sortedSteps = this.getSortedSteps(scenario);
+
+        // Derive primary focal target if available
+        let target = null;
+        if (scenario.target) {
+            target = scenario.target instanceof AttackTarget ? scenario.target : AttackTarget.fromJSON(scenario.target);
+        } else if (scenario.target_entities?.user_ids?.length > 0) {
+            target = new AttackTarget({
+                entity_type: "user",
+                entity_id: scenario.target_entities.user_ids[0]
+            });
+        } else if (scenario.target_entities?.account_ids?.length > 0) {
+            target = new AttackTarget({
+                entity_type: "account",
+                entity_id: scenario.target_entities.account_ids[0]
+            });
+        } else if (scenario.target_entities?.merchant_ids?.length > 0) {
+            target = new AttackTarget({
+                entity_type: "merchant",
+                entity_id: scenario.target_entities.merchant_ids[0]
+            });
+        } else if (scenario.target_entities?.device_ids?.length > 0) {
+            target = new AttackTarget({
+                entity_type: "device",
+                entity_id: scenario.target_entities.device_ids[0]
+            });
+        }
+
+        // Map steps to P1 AttackStep instances
+        const p1Steps = sortedSteps.map(step => {
+            const action = step.action || this.resolveSimulatorAction(step.primitive_id);
+            const dependsOn = Array.isArray(step.depends_on) ? [...step.depends_on] : [];
+            const timeoutMs = typeof step.timeout_ms === "number" && step.timeout_ms > 0
+                ? step.timeout_ms
+                : (typeof step.delay_ms === "number" && step.delay_ms > 0 ? Math.max(step.delay_ms + 5000, 5000) : 5000);
+
+            return new AttackStep({
+                step_id: step.step_id,
+                primitive_id: step.primitive_id || null,
+                action,
+                parameters: { ...step.parameters },
+                target: step.target ? (step.target instanceof AttackTarget ? step.target : AttackTarget.fromJSON(step.target)) : null,
+                depends_on: dependsOn,
+                condition: step.condition || null,
+                timeout_ms: timeoutMs
+            });
+        });
+
+        // Parse integer version
+        let version = 1;
+        if (typeof scenario.version === "number") {
+            version = scenario.version;
+        } else if (typeof scenario.version === "string") {
+            const parsed = parseInt(scenario.version.split(".")[0], 10);
+            if (!isNaN(parsed) && parsed > 0) version = parsed;
+        }
+
+        const objective = scenario.objective || scenario.description || scenario.name;
+
+        const metadata = {
+            attack_family: scenario.attack_family,
+            severity: scenario.severity,
+            strategy_id: scenario.strategy_id || null,
+            generated_by: scenario.generated_by || "GENAI_PLANNER",
+            planner_model: scenario.planner_model || null,
+            generation_timestamp: scenario.generation_timestamp || new Date().toISOString(),
+            status: scenario.status,
+            target_entities: scenario.target_entities || null,
+            tags: scenario.tags || null,
+            ...(scenario.metadata || {})
+        };
+
+        const constraints = {
+            max_duration_ms: scenario.max_duration_ms || null,
+            requires_seeded_data: scenario.requires_seeded_data || false,
+            ...(scenario.constraints || {})
+        };
+
+        return new AttackScenario({
+            scenario_id: scenario.scenario_id,
+            version,
+            objective,
+            simulation_id: scenario.simulation_id,
+            experiment_id: scenario.experiment_id,
+            target,
+            steps: p1Steps,
+            constraints,
+            metadata
+        });
+    }
+
+    /**
+     * Create an ExecutionContext initialized for this scenario.
+     *
+     * @param {object} scenario - A VALIDATED P2 AttackScenario or P1 AttackScenario
+     * @param {object} [overrides={}] - Optional context field overrides
+     * @returns {ExecutionContext}
+     */
+    toExecutionContext(scenario, overrides = {}) {
+        const scenarioId = scenario.scenario_id;
+        const simulationId = scenario.simulation_id;
+        const experimentId = scenario.experiment_id;
+
+        return new ExecutionContext({
+            execution_id: overrides.execution_id || crypto.randomUUID(),
+            scenario_id: scenarioId,
+            simulation_id: simulationId,
+            experiment_id: experimentId,
+            correlation_id: overrides.correlation_id || null,
+            causation_id: overrides.causation_id || null,
+            metadata: {
+                ...(scenario.metadata || {}),
+                ...(overrides.metadata || {})
+            }
+        });
     }
 }
 
