@@ -49,7 +49,8 @@ const {
     DetectionCategory,
     ModelType,
     DefaultRiskThresholds,
-    DefaultEnsembleWeights
+    DefaultEnsembleWeights,
+    KafkaTopics
 } = require("./domain/constants");
 
 const {
@@ -118,6 +119,7 @@ module.exports = {
     ModelType,
     DefaultRiskThresholds,
     DefaultEnsembleWeights,
+    KafkaTopics,
     BlueTeamError,
     InvalidEventError,
     FeatureExtractionError,

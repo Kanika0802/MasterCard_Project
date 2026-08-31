@@ -70,6 +70,17 @@ const DefaultEnsembleWeights = Object.freeze({
     identity: 0.10
 });
 
+const KafkaTopics = Object.freeze({
+    USERS: "simulator.users.v1",
+    ACCOUNTS: "simulator.accounts.v1",
+    TRANSACTIONS: "simulator.transactions.v1",
+    DEVICES: "simulator.devices.v1",
+    KYC: "simulator.kyc.v1",
+    BENEFICIARIES: "simulator.beneficiaries.v1",
+    AUTH: "simulator.auth.v1",
+    SIMULATIONS: "simulator.simulations.v1"
+});
+
 module.exports = {
     RiskTier,
     DefenseDecisionType,
@@ -78,5 +89,6 @@ module.exports = {
     DetectionCategory,
     ModelType,
     DefaultRiskThresholds,
-    DefaultEnsembleWeights
+    DefaultEnsembleWeights,
+    KafkaTopics
 };

@@ -1,6 +1,8 @@
 // blueteam/src/server.js
 "use strict";
 
+require("dotenv").config();
+
 const { createBlueTeamApp } = require("./api/app");
 const DefenseEngine = require("./DefenseEngine");
 

@@ -9,16 +9,7 @@ class BlueTeamKafkaConsumer {
         this.streamProcessor = streamProcessor;
         this.brokers = options.brokers || (process.env.KAFKA_BROKERS ? process.env.KAFKA_BROKERS.split(",") : ["localhost:9092"]);
         this.groupId = options.groupId || "aipaysec-blueteam-group";
-        this.topics = options.topics || Object.values(KafkaTopics || {
-            USERS: "simulator.users.v1",
-            ACCOUNTS: "simulator.accounts.v1",
-            TRANSACTIONS: "simulator.transactions.v1",
-            DEVICES: "simulator.devices.v1",
-            KYC: "simulator.kyc.v1",
-            BENEFICIARIES: "simulator.beneficiaries.v1",
-            AUTH: "simulator.auth.v1",
-            SIMULATIONS: "simulator.simulations.v1"
-        });
+        this.topics = options.topics || Object.values(KafkaTopics);
 
         this.kafka = new Kafka({
             clientId: options.clientId || "aipaysec-blueteam-defense",
@@ -32,12 +23,16 @@ class BlueTeamKafkaConsumer {
         this.consumer = null;
         this.isConnected = false;
         this.isRunning = false;
+        this.allowAutoTopicCreation = options.allowAutoTopicCreation !== undefined ? options.allowAutoTopicCreation : true;
     }
 
     async connect() {
         if (this.isConnected) return;
         try {
-            this.consumer = this.kafka.consumer({ groupId: this.groupId });
+            this.consumer = this.kafka.consumer({
+                groupId: this.groupId,
+                allowAutoTopicCreation: this.allowAutoTopicCreation
+            });
             await this.consumer.connect();
             this.isConnected = true;
         } catch (err) {
