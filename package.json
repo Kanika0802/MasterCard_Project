@@ -14,7 +14,14 @@
     "test:m2": "node --test redteam/tests/**/*.test.js",
     "test:m2:unit": "node --test redteam/tests/unit/*.test.js",
     "test:m2:integration": "node --test redteam/tests/integration/*.test.js",
-    "test:all": "node --test simulator/tests/**/*.test.js redteam/tests/**/*.test.js"
+    "test:m3": "node --test attack-primitives/tests/**/*.test.js",
+    "test:m3:unit": "node --test attack-primitives/tests/unit/*.test.js",
+    "test:m3:integration": "node --test attack-primitives/tests/integration/*.test.js",
+    "test:m5": "node --test blueteam/tests/**/*.test.js",
+    "test:m5:unit": "node --test blueteam/tests/unit/*.test.js",
+    "test:m5:integration": "node --test blueteam/tests/integration/*.test.js",
+    "blueteam:start": "node blueteam/src/server.js",
+    "test:all": "node --test simulator/tests/**/*.test.js redteam/tests/**/*.test.js attack-primitives/tests/**/*.test.js blueteam/tests/**/*.test.js"
   },
   "keywords": [],
   "author": "",
