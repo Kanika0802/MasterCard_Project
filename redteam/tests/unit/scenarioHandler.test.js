@@ -284,6 +284,62 @@ describe("ScenarioHandler", () => {
         assert.equal(scenario.steps[0].step_id, originalFirst);
     });
 
+    // ── toP1Scenario Adapter ────────────────────────────────────
+
+    it("toP1Scenario() converts validated P2 scenario to canonical P1 AttackScenario", () => {
+        const handler = makeHandler();
+        const p2Scenario = validatedScenario();
+
+        const p1Scenario = handler.toP1Scenario(p2Scenario);
+
+        assert.equal(p1Scenario.scenario_id, p2Scenario.scenario_id);
+        assert.equal(p1Scenario.version, 1);
+        assert.equal(p1Scenario.objective, p2Scenario.description);
+        assert.equal(p1Scenario.simulation_id, p2Scenario.simulation_id);
+        assert.equal(p1Scenario.experiment_id, p2Scenario.experiment_id);
+        assert.ok(p1Scenario.target);
+        assert.equal(p1Scenario.target.entity_type, "user");
+        assert.equal(p1Scenario.target.entity_id, "usr_001");
+
+        assert.equal(p1Scenario.steps.length, 2);
+        assert.equal(p1Scenario.steps[0].step_id, "step_000");
+        assert.equal(p1Scenario.steps[0].action, "REGISTER_DEVICE");
+        assert.deepEqual(p1Scenario.steps[0].depends_on, []);
+        assert.equal(p1Scenario.steps[0].timeout_ms, 5000);
+
+        assert.equal(p1Scenario.steps[1].step_id, "step_001");
+        assert.equal(p1Scenario.steps[1].action, "SIMULATE_LOGIN");
+        assert.deepEqual(p1Scenario.steps[1].depends_on, ["step_000"]);
+        assert.equal(p1Scenario.steps[1].timeout_ms, 5500); // 500ms delay + 5000ms base
+
+        assert.equal(p1Scenario.metadata.attack_family, "ACCOUNT_TAKEOVER");
+        assert.equal(p1Scenario.metadata.severity, "HIGH");
+        assert.equal(p1Scenario.metadata.status, "VALIDATED");
+    });
+
+    it("toP1Scenario() rejects unvalidated scenario", () => {
+        const handler = makeHandler();
+        const draft = validatedScenario({ status: "DRAFT" });
+        assert.throws(() => handler.toP1Scenario(draft), ValidationError);
+    });
+
+    it("toExecutionContext() builds a valid ExecutionContext", () => {
+        const handler = makeHandler();
+        const p2Scenario = validatedScenario();
+
+        const context = handler.toExecutionContext(p2Scenario, {
+            correlation_id: "corr_123",
+            causation_id: "cause_123"
+        });
+
+        assert.ok(context.execution_id);
+        assert.equal(context.scenario_id, p2Scenario.scenario_id);
+        assert.equal(context.simulation_id, p2Scenario.simulation_id);
+        assert.equal(context.experiment_id, p2Scenario.experiment_id);
+        assert.equal(context.correlation_id, "corr_123");
+        assert.equal(context.causation_id, "cause_123");
+    });
+
     // ── Public API from index.js ─────────────────────────────────
 
     it("ScenarioHandler is exported from redteam/src/index.js", () => {

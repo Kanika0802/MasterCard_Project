@@ -34,8 +34,17 @@ const { StrategyRegistry, getDefaultRegistry: getDefaultStrategyRegistry } = req
 // Core components
 const { ScenarioValidator } = require("./validation/ScenarioValidator");
 const { AttackComposer } = require("./composer/AttackComposer");
+const { BatchComposer } = require("./composer/BatchComposer");
+const { ScenarioSerializer, BUNDLE_VERSION } = require("./composer/ScenarioSerializer");
 const { PlannerInterface } = require("./planner/PlannerInterface");
 const { RuleBasedPlanner } = require("./planner/RuleBasedPlanner");
+const { GenAIPlanner, DEFAULT_SYSTEM_PROMPT } = require("./planner/GenAIPlanner");
+const {
+    BaseModelProvider,
+    FunctionModelProvider,
+    MockModelProvider,
+    HttpModelProvider
+} = require("./planner/ModelProvider");
 
 module.exports = {
     // ── PERSON 1 INTEGRATION SURFACE (start here) ──────────────
@@ -57,6 +66,7 @@ module.exports = {
     VALID_SEVERITY,
     VALID_STATUS,
     VALID_GENERATED_BY,
+    BUNDLE_VERSION,
 
     // ── REGISTRIES ──────────────────────────────────────────────
     PrimitiveRegistry,
@@ -67,6 +77,16 @@ module.exports = {
     // ── CORE M2 COMPONENTS ──────────────────────────────────────
     ScenarioValidator,
     AttackComposer,
+    BatchComposer,
+    ScenarioSerializer,
     PlannerInterface,
-    RuleBasedPlanner
+    RuleBasedPlanner,
+    GenAIPlanner,
+    DEFAULT_SYSTEM_PROMPT,
+
+    // ── MODEL PROVIDERS ─────────────────────────────────────────
+    BaseModelProvider,
+    FunctionModelProvider,
+    MockModelProvider,
+    HttpModelProvider
 };
