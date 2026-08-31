@@ -361,4 +361,162 @@ describe("AttackPolicyValidator Unit Tests", () => {
             globalThis.fetch = originalFetch;
         }
     });
+
+    it("19. validates valid step-output references with declared dependencies", () => {
+        const scenario = createValidScenarioData({
+            steps: [
+                {
+                    step_id: "step_login",
+                    primitive_id: "PRIM_ACCOUNT_TAKEOVER_LOGIN",
+                    action: "SIMULATE_LOGIN",
+                    parameters: {
+                        user_id: "usr_synth_1001",
+                        device_id: "device_initial"
+                    }
+                },
+                {
+                    step_id: "spoofed-device-001",
+                    primitive_id: "PRIM_REGISTER_SPOOFED_DEVICE",
+                    action: "REGISTER_DEVICE",
+                    depends_on: ["step_login"],
+                    parameters: {
+                        user_id: "usr_synth_1001",
+                        device_type: "MOBILE"
+                    }
+                },
+                {
+                    step_id: "step_transfer",
+                    primitive_id: "PRIM_EXECUTE_FRAUDULENT_TRANSFER",
+                    action: "PERFORM_TRANSACTION",
+                    depends_on: ["spoofed-device-001"],
+                    parameters: {
+                        sender_account_id: "acc_victim_01",
+                        amount: 1500.00,
+                        device_id: "{{steps.spoofed-device-001.device_id}}"
+                    }
+                }
+            ]
+        });
+
+        const result = validator.validate(scenario);
+        assert.equal(result.valid, true);
+        assert.equal(result.errors.length, 0);
+    });
+
+    it("20. allows template expressions for typed fields (e.g. number/boolean) during static validation", () => {
+        const scenario = createValidScenarioData({
+            steps: [
+                {
+                    step_id: "step_calc",
+                    primitive_id: "PRIM_ACCOUNT_TAKEOVER_LOGIN",
+                    action: "SIMULATE_LOGIN",
+                    parameters: { user_id: "usr_synth_1001" }
+                },
+                {
+                    step_id: "step_transfer",
+                    primitive_id: "PRIM_EXECUTE_FRAUDULENT_TRANSFER",
+                    action: "PERFORM_TRANSACTION",
+                    depends_on: ["step_calc"],
+                    parameters: {
+                        sender_account_id: "acc_victim_01",
+                        amount: "{{steps.step_calc.calculated_amount}}"
+                    }
+                }
+            ]
+        });
+
+        const result = validator.validate(scenario);
+        assert.equal(result.valid, true);
+    });
+
+    it("21. rejects reference to non-existent step_id", () => {
+        const scenario = createValidScenarioData({
+            steps: [
+                {
+                    step_id: "step_transfer",
+                    primitive_id: "PRIM_EXECUTE_FRAUDULENT_TRANSFER",
+                    action: "PERFORM_TRANSACTION",
+                    parameters: {
+                        sender_account_id: "acc_victim_01",
+                        amount: 100,
+                        device_id: "{{steps.ghost_step.device_id}}"
+                    }
+                }
+            ]
+        });
+
+        const result = validator.validate(scenario);
+        assert.equal(result.valid, false);
+        assert.ok(result.errors.some(e => e.code === "NON_EXISTENT_STEP_REFERENCE"));
+    });
+
+    it("22. rejects self-referencing step output", () => {
+        const scenario = createValidScenarioData({
+            steps: [
+                {
+                    step_id: "step_self",
+                    primitive_id: "PRIM_REGISTER_SPOOFED_DEVICE",
+                    action: "REGISTER_DEVICE",
+                    parameters: {
+                        user_id: "usr_synth_1001",
+                        device_fingerprint: "{{steps.step_self.device_fingerprint}}"
+                    }
+                }
+            ]
+        });
+
+        const result = validator.validate(scenario);
+        assert.equal(result.valid, false);
+        assert.ok(result.errors.some(e => e.code === "SELF_REFERENCE"));
+    });
+
+    it("23. rejects references to undeclared dependencies or forward references", () => {
+        const scenario = createValidScenarioData({
+            steps: [
+                {
+                    step_id: "step_A",
+                    primitive_id: "PRIM_ACCOUNT_TAKEOVER_LOGIN",
+                    action: "SIMULATE_LOGIN",
+                    // step_A references step_B which is not in its ancestry
+                    parameters: {
+                        user_id: "usr_synth_1001",
+                        device_id: "{{steps.step_B.device_id}}"
+                    }
+                },
+                {
+                    step_id: "step_B",
+                    primitive_id: "PRIM_REGISTER_SPOOFED_DEVICE",
+                    action: "REGISTER_DEVICE",
+                    parameters: {
+                        user_id: "usr_synth_1001"
+                    }
+                }
+            ]
+        });
+
+        const result = validator.validate(scenario);
+        assert.equal(result.valid, false);
+        assert.ok(result.errors.some(e => e.code === "UNDECLARED_STEP_DEPENDENCY"));
+    });
+
+    it("24. rejects malformed template reference syntax", () => {
+        const scenario = createValidScenarioData({
+            steps: [
+                {
+                    step_id: "step_1",
+                    primitive_id: "PRIM_ACCOUNT_TAKEOVER_LOGIN",
+                    action: "SIMULATE_LOGIN",
+                    parameters: {
+                        user_id: "usr_synth_1001",
+                        device_id: "{{unclosed_template"
+                    }
+                }
+            ]
+        });
+
+        const result = validator.validate(scenario);
+        assert.equal(result.valid, false);
+        assert.ok(result.errors.some(e => e.code === "MALFORMED_STEP_REFERENCE"));
+    });
 });
+

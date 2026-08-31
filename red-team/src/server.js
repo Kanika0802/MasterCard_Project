@@ -9,10 +9,16 @@ const PORT = Number(process.env.RED_TEAM_PORT) || 5000;
 
 async function startServer(options = {}) {
     const app = createRedTeamApp(options);
-    const port = options.port || PORT;
+    const port = options.port !== undefined ? options.port : PORT;
 
-    const server = app.listen(port, () => {
-        console.log(`[RedTeam] Execution API server listening on port ${port}`);
+    const server = await new Promise((resolve, reject) => {
+        const s = app.listen(port, () => {
+            const addr = s.address();
+            const actualPort = typeof addr === "object" && addr ? addr.port : port;
+            console.log(`[RedTeam] Execution API server listening on port ${actualPort}`);
+            resolve(s);
+        });
+        s.once("error", reject);
     });
 
     const shutdown = () => {

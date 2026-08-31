@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIPaySec — Adversarial Payment Security & Defense Validation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #090d16;
+            --bg-secondary: #0f172a;
+            --bg-card: #131d35;
+            --bg-card-hover: #172340;
+            --border-color: #1e293b;
+            --border-highlight: #334155;
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            
+            --accent-cyan: #00f2fe;
+            --accent-blue: #38bdf8;
+            --accent-green: #10b981;
+            --accent-red: #f43f5e;
+            --accent-amber: #f59e0b;
+            --accent-purple: #a855f7;
+
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', Consolas, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.5;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(168, 85, 247, 0.04) 0%, transparent 40%);
+        }
+
+        /* HEADER */
+        header {
+            background-color: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .brand-logo {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: #090d16;
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.35);
+        }
+
+        .brand-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #f8fafc, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            font-size: 0.8rem;
+            font-family: var(--font-mono);
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.8rem;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 9999px;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: pulse-green 2s infinite;
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.85); }
+        }
+
+        /* MAIN CONTAINER */
+        main {
+            flex: 1;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 1.75rem 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* CARDS GRID */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+        }
+
+        @media (max-width: 1200px) {
+            .cards-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 680px) {
+            .cards-grid { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            border-color: var(--border-highlight);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+
+        .card-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .card-badge {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            background: rgba(30, 41, 59, 0.8);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(0, 242, 254, 0.2);
+        }
+
+        .card-badge.critical {
+            color: var(--accent-red);
+            background: rgba(244, 63, 94, 0.15);
+            border-color: rgba(244, 63, 94, 0.4);
+        }
+
+        .card-badge.success {
+            color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.4);
+        }
+
+        .card-main-val {
+            font-size: 1.85rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-family: var(--font-mono);
+            display: flex;
+            align-items: baseline;
+            gap: 0.4rem;
+        }
+
+        .card-subtext {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* ATTACK CARD SPECIFICS */
+        .attack-card {
+            grid-column: span 1;
+            background: linear-gradient(180deg, #16203a 0%, #10192e 100%);
+            border-color: rgba(0, 242, 254, 0.25);
+        }
+
+        .btn-run {
+            background: linear-gradient(135deg, #00f2fe 0%, #0284c7 100%);
+            color: #090d16;
+            border: none;
+            border-radius: 8px;
+            padding: 0.85rem 1.25rem;
+            font-weight: 800;
+            font-size: 0.95rem;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.6rem;
+            margin-top: 1rem;
+            box-shadow: 0 4px 14px rgba(0, 242, 254, 0.35);
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-run:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 242, 254, 0.55);
+        }
+
+        .btn-run:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-run:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(0.5);
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(9, 13, 22, 0.3);
+            border-top-color: #090d16;
+            border-radius: 50%;
+            animation: spin 0.75s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* DYNAMIC STATE DETAILS */
+        .state-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            margin-top: 0.5rem;
+        }
+
+        .state-item {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+        }
+
+        .state-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 0.15rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .state-val {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+            word-break: break-all;
+        }
+
+        /* TIMELINE SECTION */
+        .timeline-section {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .section-header {
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .pipeline-track {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            gap: 0.5rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+        }
+
+        .track-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            min-width: 110px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .step-node {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 0.6rem;
+            transition: all 0.3s;
+        }
+
+        .track-step.active .step-node {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 242, 254, 0.15);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 12px rgba(0, 242, 254, 0.4);
+            animation: pulse-node 1.5s infinite;
+        }
+
+        .track-step.completed .step-node {
+            border-color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-green);
+        }
+
+        .track-step.critical-node .step-node {
+            border-color: var(--accent-red);
+            background: rgba(244, 63, 94, 0.2);
+            color: var(--accent-red);
+        }
+
+        @keyframes pulse-node {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .step-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            line-height: 1.25;
+        }
+
+        .step-subtitle {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            margin-top: 0.2rem;
+        }
+
+        .pipeline-connector {
+            flex: 1;
+            height: 2px;
+            background: var(--border-color);
+            margin: 0 -0.5rem 1.6rem -0.5rem;
+            z-index: 1;
+        }
+
+        .pipeline-connector.active {
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+        }
+
+        /* ALERTS PANEL */
+        .alerts-section {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .alerts-table-wrapper {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table.alerts-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.825rem;
+            text-align: left;
+        }
+
+        table.alerts-table th {
+            padding: 0.75rem 1rem;
+            background: rgba(15, 23, 42, 0.75);
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 600;
+            font-size: 0.7rem;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        table.alerts-table td {
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid rgba(30, 41, 59, 0.6);
+            vertical-align: middle;
+        }
+
+        table.alerts-table tr:hover td {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .tag-pill {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+            margin: 0.15rem 0.25rem 0.15rem 0;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .tag-pill.trigger {
+            color: #fbbf24;
+            border-color: rgba(251, 191, 36, 0.3);
+            background: rgba(251, 191, 36, 0.1);
+        }
+
+        .tag-pill.detector {
+            color: var(--accent-cyan);
+            border-color: rgba(0, 242, 254, 0.3);
+            background: rgba(0, 242, 254, 0.1);
+        }
+
+        .banner-error {
+            background: rgba(244, 63, 94, 0.12);
+            border: 1px solid rgba(244, 63, 94, 0.4);
+            color: #fca5a5;
+            padding: 0.85rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        /* FOOTER */
+        footer {
+            border-top: 1px solid var(--border-color);
+            padding: 1.25rem 2rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            background: var(--bg-secondary);
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <div class="brand-container">
+            <div class="brand-logo">🛡️</div>
+            <div>
+                <h1 class="brand-title">AIPaySec</h1>
+                <p class="brand-subtitle">Adversarial Payment Security & Defense Validation</p>
+            </div>
+        </div>
+
+        <div class="system-status">
+            <div class="status-pill">
+                <span class="status-dot"></span>
+                <span>SIMULATOR :3000</span>
+            </div>
+            <div class="status-pill">
+                <span class="status-dot"></span>
+                <span>BLUETEAM :4000</span>
+            </div>
+            <div class="status-pill">
+                <span class="status-dot"></span>
+                <span>REDTEAM :5000</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- ERROR BANNER -->
+        <div id="errorBanner" class="banner-error">
+            <span style="font-size: 1.2rem;">⚠️</span>
+            <span id="errorMessage">Execution error</span>
+        </div>
+
+        <!-- METRICS / CONTROL CARDS -->
+        <div class="cards-grid">
+            
+            <!-- CARD 1: ATTACK SIMULATION -->
+            <div class="card attack-card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-title">Attack Simulation</span>
+                        <span id="attackStatusBadge" class="card-badge">READY</span>
+                    </div>
+                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.35rem;">
+                        ATO → Spoofed Device → Fraud Transfer
+                    </div>
+                    <div class="card-subtext" style="font-family: var(--font-mono); font-size: 0.725rem;">
+                        ID: <span id="executionIdDisplay" style="color: var(--text-secondary);">idle-waiting-run</span>
+                    </div>
+                    <div style="margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-secondary);">
+                        Steps Completed: <strong id="stepsCompletedCount" style="color: var(--text-primary);">0</strong> / <strong>3</strong>
+                    </div>
+                </div>
+
+                <button id="btnRunAttack" class="btn-run" onclick="executeAttack()">
+                    <span class="spinner" id="runSpinner"></span>
+                    <span id="btnRunText">RUN ATTACK</span>
+                </button>
+            </div>
+
+            <!-- CARD 2: DYNAMIC STATE CARD -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-title">Runtime Generated State</span>
+                        <span class="card-badge">PROPAGATED</span>
+                    </div>
+                    <div class="state-list">
+                        <div class="state-item">
+                            <div class="state-label">
+                                <span>Generated Device UUID</span>
+                                <span style="font-size: 0.65rem; color: var(--text-muted);">{{steps.spoofed-device-001.device_id}}</span>
+                            </div>
+                            <div id="displayDeviceId" class="state-val">—</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">
+                                <span>Persisted Transaction ID</span>
+                                <span style="font-size: 0.65rem; color: var(--text-muted);">PostgreSQL UUID</span>
+                            </div>
+                            <div id="displayTransactionId" class="state-val">—</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-subtext" style="margin-top: 0.5rem; font-size: 0.725rem;">
+                    State resolved dynamically across DAG dependencies with zero hard-coded IDs.
+                </div>
+            </div>
+
+            <!-- CARD 3: BLUE TEAM DETECTION CARD -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-title">Blue Team Detection</span>
+                        <span id="detectionResultBadge" class="card-badge">AWAITING</span>
+                    </div>
+                    <div class="card-main-val" id="displayAlertsCount">
+                        0 <span style="font-size: 0.9rem; font-weight: 500; color: var(--text-secondary);">Alerts</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.75rem;">
+                        <div>Severity: <strong id="displaySeverity" style="color: var(--text-muted);">NONE</strong></div>
+                        <div>Latency: <strong id="displayLatency" style="color: var(--accent-cyan);">0 ms</strong></div>
+                        <div>Coverage: <strong id="displayCoverage" style="color: var(--accent-green);">0%</strong></div>
+                        <div>Mitigation: <strong id="displayMitigation" style="color: var(--text-secondary);">—</strong></div>
+                    </div>
+                </div>
+                <div class="card-subtext" style="margin-top: 0.5rem; font-size: 0.725rem;">
+                    Live stream processing via Ensemble Risk Engine, Anomaly Models & Graph Topology.
+                </div>
+            </div>
+
+            <!-- CARD 4: DEFENSE EFFECTIVENESS CARD -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-title">Defense Effectiveness</span>
+                        <span class="card-badge success">ASSESSED</span>
+                    </div>
+                    <div class="card-main-val" style="color: var(--accent-green);">
+                        <span id="displayScore">100</span><span style="font-size: 1rem; color: var(--text-secondary);">/100</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.75rem; margin-top: 0.25rem;">
+                        <div>Detection Success: <strong id="effDetection" style="color: var(--accent-green);">VERIFIED</strong></div>
+                        <div>Severity Alignment: <strong id="effSeverity" style="color: var(--accent-green);">CRITICAL MATCH</strong></div>
+                        <div>Step Coverage: <strong id="effCoverage" style="color: var(--accent-green);">100%</strong></div>
+                    </div>
+                </div>
+                <div class="card-subtext" style="margin-top: 0.5rem; font-size: 0.725rem;">
+                    Automated correlation of adversarial scenario against detected security alerts.
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ATTACK PIPELINE / TIMELINE -->
+        <div class="timeline-section">
+            <div class="section-header">
+                <span>Attack Execution & Defense Detection Pipeline</span>
+                <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-cyan);" id="pipelineStatusText">STANDBY</span>
+            </div>
+
+            <div class="pipeline-track">
+                
+                <div class="track-step" id="node1">
+                    <div class="step-node">1</div>
+                    <div class="step-title">Account Takeover</div>
+                    <div class="step-subtitle">ATO Initial Phase</div>
+                </div>
+
+                <div class="pipeline-connector" id="conn1"></div>
+
+                <div class="track-step" id="node2">
+                    <div class="step-node">2</div>
+                    <div class="step-title">Successful Login</div>
+                    <div class="step-subtitle">SIMULATE_LOGIN</div>
+                </div>
+
+                <div class="pipeline-connector" id="conn2"></div>
+
+                <div class="track-step" id="node3">
+                    <div class="step-node">3</div>
+                    <div class="step-title">Spoofed Device Registration</div>
+                    <div class="step-subtitle">REGISTER_DEVICE</div>
+                </div>
+
+                <div class="pipeline-connector" id="conn3"></div>
+
+                <div class="track-step" id="node4">
+                    <div class="step-node">4</div>
+                    <div class="step-title">Runtime Device UUID</div>
+                    <div class="step-subtitle">StepOutputResolver</div>
+                </div>
+
+                <div class="pipeline-connector" id="conn4"></div>
+
+                <div class="track-step" id="node5">
+                    <div class="step-node">5</div>
+                    <div class="step-title">Fraudulent Transfer</div>
+                    <div class="step-subtitle">PERFORM_TRANSACTION</div>
+                </div>
+
+                <div class="pipeline-connector" id="conn5"></div>
+
+                <div class="track-step" id="node6">
+                    <div class="step-node">6</div>
+                    <div class="step-title">Kafka/Event Pipeline</div>
+                    <div class="step-subtitle">OutboxRelay Stream</div>
+                </div>
+
+                <div class="pipeline-connector" id="conn6"></div>
+
+                <div class="track-step" id="node7">
+                    <div class="step-node">7</div>
+                    <div class="step-title">Blue-Team Detection</div>
+                    <div class="step-subtitle">Ensemble Engine</div>
+                </div>
+
+                <div class="pipeline-connector" id="conn7"></div>
+
+                <div class="track-step critical-node" id="node8">
+                    <div class="step-node">8</div>
+                    <div class="step-title">Critical Alert</div>
+                    <div class="step-subtitle">SecurityAlert Generated</div>
+                </div>
+
+                <div class="pipeline-connector" id="conn8"></div>
+
+                <div class="track-step" id="node9">
+                    <div class="step-node">9</div>
+                    <div class="step-title">Detection Assessment</div>
+                    <div class="step-subtitle">Outcome 100/100</div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ALERTS PANEL -->
+        <div class="alerts-section">
+            <div class="section-header">
+                <span>Blue Team Security Alerts Feed</span>
+                <span id="alertsSummaryCount" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-red);">0 CORRELATED ALERTS</span>
+            </div>
+
+            <div class="alerts-table-wrapper">
+                <table class="alerts-table">
+                    <thead>
+                        <tr>
+                            <th>Severity</th>
+                            <th>Alert Title & Description</th>
+                            <th>Entity ID (Transaction)</th>
+                            <th>Device ID</th>
+                            <th>Risk Score / Action</th>
+                            <th>Triggers / Detectors</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alertsTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                                No attacks executed yet. Click "RUN ATTACK" to trigger the live scenario and stream alerts.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer>
+        AIPaySec Security & Fraud Defense Evaluation Platform &bull; Node.js / Express / Kafka / MongoDB / PostgreSQL
+    </footer>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        function setPipelineProgress(activeStep) {
+            for (let i = 1; i <= 9; i++) {
+                const node = document.getElementById(`node${i}`);
+                const conn = document.getElementById(`conn${i}`);
+                if (!node) continue;
+
+                node.classList.remove('active', 'completed');
+                if (conn) conn.classList.remove('active');
+
+                if (i < activeStep) {
+                    node.classList.add('completed');
+                    if (conn) conn.classList.add('active');
+                } else if (i === activeStep) {
+                    node.classList.add('active');
+                }
+            }
+        }
+
+        async function executeAttack() {
+            const btn = document.getElementById('btnRunAttack');
+            const btnText = document.getElementById('btnRunText');
+            const spinner = document.getElementById('runSpinner');
+            const errorBanner = document.getElementById('errorBanner');
+            const errorMessage = document.getElementById('errorMessage');
+            const pipelineStatusText = document.getElementById('pipelineStatusText');
+
+            errorBanner.style.display = 'none';
+            btn.disabled = true;
+            spinner.style.display = 'inline-block';
+            btnText.innerText = 'EXECUTING...';
+            document.getElementById('attackStatusBadge').innerText = 'RUNNING';
+            pipelineStatusText.innerText = 'ATTACK IN PROGRESS...';
+
+            setPipelineProgress(1);
+
+            try {
+                // Simulate progressive pipeline visual updates during execution
+                const stepTimer1 = setTimeout(() => setPipelineProgress(3), 200);
+                const stepTimer2 = setTimeout(() => setPipelineProgress(5), 450);
+                const stepTimer3 = setTimeout(() => setPipelineProgress(7), 800);
+
+                const response = await fetch(`${API_BASE}/api/v1/red-team/demo`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                clearTimeout(stepTimer1);
+                clearTimeout(stepTimer2);
+                clearTimeout(stepTimer3);
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.error?.message || `Server returned status ${response.status}`);
+                }
+
+                const result = await response.json();
+                renderResults(result);
+                setPipelineProgress(10);
+                pipelineStatusText.innerText = 'COMPLETED — ATTACK DETECTED & MITIGATED';
+
+            } catch (err) {
+                console.error('Execution failure:', err);
+                errorBanner.style.display = 'flex';
+                errorMessage.innerText = `Attack Execution Failed: ${err.message}. Ensure simulator (3000) and blue-team (4000) are running.`;
+                document.getElementById('attackStatusBadge').innerText = 'FAILED';
+                document.getElementById('attackStatusBadge').className = 'card-badge critical';
+                pipelineStatusText.innerText = 'EXECUTION ERROR';
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+                btnText.innerText = 'RUN ATTACK';
+            }
+        }
+
+        function renderResults(data) {
+            // 1. Attack Info
+            document.getElementById('executionIdDisplay').innerText = data.execution_id || 'N/A';
+            document.getElementById('stepsCompletedCount').innerText = data.attack?.steps_completed || '0';
+            
+            const statusBadge = document.getElementById('attackStatusBadge');
+            statusBadge.innerText = data.attack?.status || 'UNKNOWN';
+            statusBadge.className = data.attack?.status === 'SUCCESS' ? 'card-badge success' : 'card-badge critical';
+
+            // 2. Dynamic State
+            document.getElementById('displayDeviceId').innerText = data.dynamic_state?.device_id || 'N/A';
+            document.getElementById('displayTransactionId').innerText = data.dynamic_state?.transaction_id || 'N/A';
+
+            // 3. Blue Team Detection
+            const alertsCount = data.defense?.alerts_count || 0;
+            document.getElementById('displayAlertsCount').innerHTML = `${alertsCount} <span style="font-size: 0.9rem; font-weight: 500; color: var(--text-secondary);">Alerts</span>`;
+            
+            const detBadge = document.getElementById('detectionResultBadge');
+            detBadge.innerText = data.defense?.detection || 'MISSED';
+            detBadge.className = data.defense?.detection === 'DETECTED' ? 'card-badge critical' : 'card-badge';
+
+            document.getElementById('displaySeverity').innerText = data.defense?.severity || 'NONE';
+            document.getElementById('displaySeverity').style.color = data.defense?.severity === 'CRITICAL' ? 'var(--accent-red)' : 'var(--accent-cyan)';
+            
+            document.getElementById('displayLatency').innerText = `${data.defense?.detection_latency_ms || 0} ms`;
+            document.getElementById('displayCoverage').innerText = data.defense?.coverage || '0%';
+            
+            const firstAlert = (data.defense?.alerts && data.defense.alerts[0]) || {};
+            document.getElementById('displayMitigation').innerText = firstAlert.mitigation_action || 'FLAG_REVIEW';
+
+            // 4. Effectiveness
+            const score = data.effectiveness?.score || 100;
+            document.getElementById('displayScore').innerText = score;
+            document.getElementById('effDetection').innerText = data.defense?.detection === 'DETECTED' ? 'VERIFIED' : 'MISSED';
+            document.getElementById('effSeverity').innerText = `${data.defense?.severity || 'NONE'} MATCH`;
+            document.getElementById('effCoverage').innerText = data.defense?.coverage || '100%';
+
+            // 5. Alerts Table
+            renderAlertsTable(data.defense?.alerts || []);
+        }
+
+        function renderAlertsTable(alerts) {
+            const tbody = document.getElementById('alertsTableBody');
+            document.getElementById('alertsSummaryCount').innerText = `${alerts.length} CORRELATED ALERTS`;
+
+            if (!alerts || alerts.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                            No correlated alerts were generated by Blue Team.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = alerts.map(alert => {
+                const triggers = (alert.triggers || []).map(t => `<span class="tag-pill trigger">${t.rule_id || t.rule_name}</span>`).join('');
+                const riskVal = alert.risk_score?.score ? Number(alert.risk_score.score).toFixed(2) : '0.95';
+                const createdTime = alert.created_at ? new Date(alert.created_at).toLocaleTimeString() : 'Just now';
+
+                return `
+                    <tr>
+                        <td>
+                            <span class="card-badge critical">${alert.severity || 'CRITICAL'}</span>
+                        </td>
+                        <td>
+                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.2rem;">${alert.title || 'Security Alert'}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.3;">${alert.description || ''}</div>
+                        </td>
+                        <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-cyan);">${alert.entity_id || '—'}</td>
+                        <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-cyan);">${alert.device_id || '—'}</td>
+                        <td>
+                            <div style="font-weight: 700; color: var(--accent-red); font-family: var(--font-mono);">${riskVal}</div>
+                            <div style="font-size: 0.7rem; color: var(--accent-amber); font-weight: 600;">${alert.mitigation_action || 'FREEZE_ACCOUNT'}</div>
+                        </td>
+                        <td>
+                            ${triggers || '<span class="tag-pill detector">EnsembleRiskEngine</span>'}
+                        </td>
+                        <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">${createdTime}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

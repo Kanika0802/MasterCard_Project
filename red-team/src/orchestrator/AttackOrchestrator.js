@@ -8,6 +8,7 @@ const AttackScenario = require("../domain/attack/AttackScenario");
 const AttackStep = require("../domain/attack/AttackStep");
 const ExecutionContext = require("../domain/execution/ExecutionContext");
 const { ExecutionState, StepExecutionStatus } = require("../domain/execution/ExecutionState");
+const StepOutputResolver = require("./StepOutputResolver");
 
 class AttackOrchestrator {
     constructor(options = {}) {
@@ -123,6 +124,7 @@ class AttackOrchestrator {
 
         // 5. Execute Steps sequentially with Fail-Fast Policy
         const stepResults = [];
+        const stepOutputsMap = {};
         let scenarioStatus = ExecutionState.COMPLETED;
         let scenarioError = null;
 
@@ -137,10 +139,52 @@ class AttackOrchestrator {
                 break;
             }
 
+            // Resolve step parameters and target dynamically using prior step outputs
+            let resolvedStep = step;
+            try {
+                const resolvedParameters = StepOutputResolver.resolve(step.parameters, stepOutputsMap);
+                const resolvedTarget = step.target ? StepOutputResolver.resolve(step.target, stepOutputsMap) : step.target;
+
+                if (resolvedParameters !== step.parameters || resolvedTarget !== step.target) {
+                    resolvedStep = new AttackStep({
+                        step_id: step.step_id,
+                        primitive_id: step.primitive_id,
+                        action: step.action,
+                        parameters: resolvedParameters,
+                        target: resolvedTarget,
+                        depends_on: step.depends_on,
+                        condition: step.condition,
+                        timeout_ms: step.timeout_ms
+                    });
+                }
+            } catch (resolveErr) {
+                const stepResult = {
+                    step_id: step.step_id,
+                    status: StepExecutionStatus.FAILED,
+                    started_at: new Date().toISOString(),
+                    completed_at: new Date().toISOString(),
+                    latency_ms: 0,
+                    error: {
+                        code: "STEP_REFERENCE_RESOLUTION_ERROR",
+                        message: resolveErr.message
+                    },
+                    isSuccess: () => false
+                };
+                stepResults.push(stepResult);
+                scenarioStatus = ExecutionState.FAILED;
+                scenarioError = {
+                    code: "STEP_EXECUTION_FAILED",
+                    message: `Step '${step.step_id}' failed: ${resolveErr.message}`,
+                    failed_step_id: step.step_id,
+                    step_error: stepResult.error
+                };
+                break;
+            }
+
             // Execute the step via AttackExecutor
             let stepResult;
             try {
-                stepResult = await this.executor.executeStep(step, context);
+                stepResult = await this.executor.executeStep(resolvedStep, context);
             } catch (unhandledErr) {
                 stepResult = {
                     step_id: step.step_id,
@@ -173,6 +217,9 @@ class AttackOrchestrator {
                 };
                 break; // Stop executing subsequent dependent/future steps
             }
+
+            // Index completed step output for subsequent steps to reference
+            stepOutputsMap[step.step_id] = StepOutputResolver.indexStepOutput(stepResult);
         }
 
         const completedAt = new Date().toISOString();

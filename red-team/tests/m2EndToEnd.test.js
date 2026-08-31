@@ -9,6 +9,7 @@ const { connectMongoDB, client } = require("../../simulator/src/config/mongodb")
 const { connectKafka, disconnectKafka } = require("../../simulator/src/config/kafka");
 const { app } = require("../../simulator/src/server");
 const UserService = require("../../simulator/src/application/services/UserService");
+const AccountService = require("../../simulator/src/application/services/AccountService");
 
 const { AttackOrchestrator } = require("../src/orchestrator");
 const { AttackPolicyValidator } = require("../src/validator");
@@ -328,5 +329,129 @@ describe("M2 Canonical End-to-End Attack Execution Integration Tests", () => {
         assert.equal(attackResult.status, ExecutionState.ABORTED);
         assert.equal(attackResult.error.code, "EXECUTION_ABORTED");
         assert.equal(attackResult.step_results.length, 0);
+    });
+
+    it("7. Dynamic Step Reference Propagation: SIMULATE_LOGIN -> REGISTER_DEVICE -> PERFORM_TRANSACTION with {{steps.spoofed-device-001.device_id}}", async () => {
+        const accountService = new AccountService();
+
+        // 1. Seed sender and receiver accounts for the transaction
+        const senderAccount = await accountService.createAccount({
+            user_id: syntheticUser.user_id,
+            initial_balance: 5000.00
+        });
+
+        const receiverAccount = await accountService.createAccount({
+            user_id: syntheticUser.user_id,
+            initial_balance: 100.00
+        });
+
+        const executionContext = new ExecutionContext({
+            execution_id: "exec_dynamic_ref_e2e_001",
+            scenario_id: "ato-device-transfer-001",
+            simulation_id: "sim_dynamic_ref_e2e",
+            experiment_id: "exp_dynamic_ref_e2e",
+            metadata: {
+                scenario_name: "ATO Device Spoofing and Dynamic UUID Transaction"
+            }
+        });
+
+        // 2. Scenario where step 3 dynamically references the device UUID created in step 2
+        const scenario = new AttackScenario({
+            scenario_id: "ato-device-transfer-001",
+            version: 1,
+            objective: "Simulate ATO login, register spoofed device, and execute transfer using created device UUID",
+            simulation_id: "sim_dynamic_ref_e2e",
+            experiment_id: "exp_dynamic_ref_e2e",
+            target: new AttackTarget({
+                entity_type: "user",
+                entity_id: syntheticUser.user_id
+            }),
+            steps: [
+                new AttackStep({
+                    step_id: "ato-login-001",
+                    primitive_id: "PRIM_ACCOUNT_TAKEOVER_LOGIN",
+                    action: "SIMULATE_LOGIN",
+                    parameters: {
+                        user_id: syntheticUser.user_id,
+                        device_id: "attacker-device-001",
+                        ip_address: "198.51.100.99",
+                        success: true
+                    },
+                    timeout_ms: 5000
+                }),
+                new AttackStep({
+                    step_id: "spoofed-device-001",
+                    primitive_id: "PRIM_REGISTER_SPOOFED_DEVICE",
+                    action: "REGISTER_DEVICE",
+                    parameters: {
+                        user_id: syntheticUser.user_id,
+                        device_type: "MOBILE",
+                        operating_system: "Android 14",
+                        browser: "Adversarial-Test-Agent",
+                        ip_address: "198.51.100.99",
+                        device_fingerprint: "spoofed-fingerprint-001"
+                    },
+                    depends_on: ["ato-login-001"],
+                    timeout_ms: 5000
+                }),
+                new AttackStep({
+                    step_id: "fraud-transfer-001",
+                    primitive_id: "PRIM_EXECUTE_FRAUDULENT_TRANSFER",
+                    action: "PERFORM_TRANSACTION",
+                    parameters: {
+                        initiator_user_id: syntheticUser.user_id,
+                        sender_account_id: senderAccount.account_id,
+                        receiver_account_id: receiverAccount.account_id,
+                        amount: 500.00,
+                        currency: "USD",
+                        channel: "MOBILE_APP",
+                        device_id: "{{steps.spoofed-device-001.device_id}}"
+                    },
+                    depends_on: ["spoofed-device-001"],
+                    timeout_ms: 5000
+                })
+            ]
+        });
+
+        // 3. Execute scenario through orchestrator
+        const attackResult = await orchestrator.executeScenario(scenario, executionContext);
+
+        // 4. Assert overall success
+        assert.equal(attackResult.status, ExecutionState.COMPLETED);
+        assert.equal(attackResult.error, null);
+        assert.equal(attackResult.step_results.length, 3);
+
+        // Step 1: SIMULATE_LOGIN completed
+        const step1 = attackResult.step_results[0];
+        assert.equal(step1.step_id, "ato-login-001");
+        assert.equal(step1.status, StepExecutionStatus.COMPLETED);
+        assert.equal(step1.simulator_response.action_type, "SIMULATE_LOGIN");
+
+        // Step 2: REGISTER_DEVICE completed with real UUID
+        const step2 = attackResult.step_results[1];
+        assert.equal(step2.step_id, "spoofed-device-001");
+        assert.equal(step2.status, StepExecutionStatus.COMPLETED);
+        assert.equal(step2.simulator_response.action_type, "REGISTER_DEVICE");
+
+        const registeredDeviceId = step2.simulator_response.state_changes[0].data.device_id;
+        assert.ok(registeredDeviceId, "REGISTER_DEVICE must emit a device_id");
+        // Verify it matches standard UUID regex
+        assert.match(
+            registeredDeviceId,
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        );
+
+        // Step 3: PERFORM_TRANSACTION completed with the resolved UUID
+        const step3 = attackResult.step_results[2];
+        assert.equal(step3.step_id, "fraud-transfer-001");
+        assert.equal(step3.status, StepExecutionStatus.COMPLETED);
+        assert.equal(step3.simulator_response.action_type, "PERFORM_TRANSACTION");
+
+        const txData = step3.simulator_response.state_changes[0].data;
+        assert.equal(txData.device_id, registeredDeviceId, "Transaction must use the resolved device UUID");
+        assert.equal(txData.sender_account_id, senderAccount.account_id);
+        assert.equal(txData.receiver_account_id, receiverAccount.account_id);
+        assert.equal(Number(txData.amount), 500.00);
+        assert.equal(txData.status, "COMPLETED");
     });
 });

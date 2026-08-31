@@ -8,6 +8,7 @@ const {
     DEFAULT_RESOURCE_LIMITS,
     DANGEROUS_PATTERNS
 } = require("./policyConfig");
+const StepOutputResolver = require("../orchestrator/StepOutputResolver");
 
 const FORBIDDEN_FRAUD_FIELDS = ["fraud_score", "is_fraud", "detection_result", "fraud_label", "risk_score", "blue_team_label"];
 const FORBIDDEN_OVERRIDE_FLAGS = ["allow_unsafe", "bypass_safety", "disable_validator", "ignore_policy", "admin_override"];
@@ -214,6 +215,10 @@ class AttackPolicyValidator {
         // 9. Semantic Dependency Graph & Cycle Detection (DAG)
         this._validateDependencyGraph(scenario.steps, stepIdSet, errors);
 
+        // 10. Step References & Template Syntax Validation
+        const ancestorMap = this._computeAncestors(scenario.steps, stepIdSet);
+        this._validateStepReferences(scenario.steps, stepIdSet, ancestorMap, errors);
+
         return {
             valid: errors.length === 0,
             errors,
@@ -326,7 +331,8 @@ class AttackPolicyValidator {
                 const val = parameters[key];
                 if (val !== undefined && val !== null) {
                     const actualType = typeof val;
-                    if (actualType !== expectedType) {
+                    const isTemplate = typeof val === "string" && StepOutputResolver.hasReference(val);
+                    if (actualType !== expectedType && !isTemplate) {
                         errors.push({
                             code: "INVALID_PARAMETER_TYPE",
                             message: `Parameter '${key}' for action '${action}' must be of type '${expectedType}', got '${actualType}'.`,
@@ -344,6 +350,147 @@ class AttackPolicyValidator {
                 }
             }
         }
+    }
+
+    _computeAncestors(steps, validStepIds) {
+        const stepMap = new Map();
+        for (const step of steps) {
+            if (step && step.step_id) {
+                stepMap.set(step.step_id, step);
+            }
+        }
+
+        const ancestorMap = new Map();
+        for (const step of steps) {
+            if (!step || !step.step_id) continue;
+            const ancestors = new Set();
+            const queue = [...(Array.isArray(step.depends_on) ? step.depends_on : [])];
+
+            while (queue.length > 0) {
+                const depId = queue.shift();
+                if (!ancestors.has(depId) && validStepIds.has(depId)) {
+                    ancestors.add(depId);
+                    const depStep = stepMap.get(depId);
+                    if (depStep && Array.isArray(depStep.depends_on)) {
+                        for (const parentId of depStep.depends_on) {
+                            if (!ancestors.has(parentId)) {
+                                queue.push(parentId);
+                            }
+                        }
+                    }
+                }
+            }
+            ancestorMap.set(step.step_id, ancestors);
+        }
+
+        return ancestorMap;
+    }
+
+    _validateStepReferences(steps, validStepIds, ancestorMap, errors) {
+        for (let i = 0; i < steps.length; i++) {
+            const step = steps[i];
+            if (!step || !step.step_id) continue;
+            const stepPath = `steps[${i}]`;
+
+            // Check for malformed template syntax in parameters or target
+            this._checkMalformedTemplates(step.parameters, `${stepPath}.parameters`, errors);
+            if (step.target) {
+                this._checkMalformedTemplates(step.target, `${stepPath}.target`, errors);
+            }
+
+            // Extract valid references and validate dependencies
+            const refs = [
+                ...StepOutputResolver.extractReferences(step.parameters),
+                ...(step.target ? StepOutputResolver.extractReferences(step.target) : [])
+            ];
+
+            const stepAncestors = ancestorMap.get(step.step_id) || new Set();
+            const forbiddenProps = ["__proto__", "prototype", "constructor"];
+
+            for (const ref of refs) {
+                const pathSegments = ref.path.replace(/\[(\d+)\]/g, ".$1").split(".");
+                if (pathSegments.some(seg => forbiddenProps.includes(seg))) {
+                    errors.push({
+                        code: "UNSAFE_REFERENCE_PATH",
+                        message: `Step '${step.step_id}' contains unsafe prototype property in reference path '${ref.path}'.`,
+                        path: `${stepPath}.parameters`
+                    });
+                } else if (ref.step_id === step.step_id) {
+                    errors.push({
+                        code: "SELF_REFERENCE",
+                        message: `Step '${step.step_id}' cannot reference its own output.`,
+                        path: `${stepPath}.parameters`
+                    });
+                } else if (!validStepIds.has(ref.step_id)) {
+                    errors.push({
+                        code: "NON_EXISTENT_STEP_REFERENCE",
+                        message: `Step '${step.step_id}' references non-existent step '${ref.step_id}'.`,
+                        path: `${stepPath}.parameters`
+                    });
+                } else if (!stepAncestors.has(ref.step_id)) {
+                    errors.push({
+                        code: "UNDECLARED_STEP_DEPENDENCY",
+                        message: `Step '${step.step_id}' references output of '${ref.step_id}', but '${ref.step_id}' is not declared in 'depends_on' or dependency ancestry.`,
+                        path: `${stepPath}.parameters`
+                    });
+                }
+            }
+        }
+    }
+
+    _checkMalformedTemplates(obj, path, errors) {
+        if (!obj || typeof obj !== "object") return;
+        const visited = new Set();
+
+        const checkStr = (str, currentPath) => {
+            if (typeof str !== "string") return;
+            if (!str.includes("{{") && !str.includes("}}")) return;
+
+            // Check for unclosed / unbalanced braces
+            const openCount = (str.match(/\{\{/g) || []).length;
+            const closeCount = (str.match(/\}\}/g) || []).length;
+            if (openCount !== closeCount) {
+                errors.push({
+                    code: "MALFORMED_STEP_REFERENCE",
+                    message: `Malformed template expression in '${currentPath}': Unbalanced braces in '${str}'.`,
+                    path: currentPath
+                });
+                return;
+            }
+
+            // Check all {{...}} patterns match valid REFERENCE_PATTERN
+            const templateMatches = str.match(/\{\{[^}]*\}\}/g) || [];
+            for (const tmpl of templateMatches) {
+                if (!StepOutputResolver.EXACT_REFERENCE_PATTERN.test(tmpl) && !StepOutputResolver.REFERENCE_PATTERN.test(tmpl)) {
+                    errors.push({
+                        code: "MALFORMED_STEP_REFERENCE",
+                        message: `Malformed template reference in '${currentPath}': '${tmpl}'. Expected format: '{{steps.<step_id>.<path>}}'.`,
+                        path: currentPath
+                    });
+                }
+            }
+        };
+
+        const recurse = (val, currentPath) => {
+            if (val === null || val === undefined) return;
+            if (typeof val === "string") {
+                checkStr(val, currentPath);
+                return;
+            }
+            if (typeof val === "object") {
+                if (visited.has(val)) return;
+                visited.add(val);
+                if (Array.isArray(val)) {
+                    val.forEach((item, idx) => recurse(item, `${currentPath}[${idx}]`));
+                } else {
+                    for (const [k, v] of Object.entries(val)) {
+                        recurse(v, `${currentPath}.${k}`);
+                    }
+                }
+            }
+        };
+
+        recurse(obj, path);
     }
 
     _validateDependencyGraph(steps, validStepIds, errors) {
@@ -474,8 +621,17 @@ class AttackPolicyValidator {
     _validateSyntheticIdentifier(value, path, errors, strictInfrastructure = true) {
         if (typeof value !== "string") return;
 
+        // If the value contains step references, sanitize them out before checking infrastructure safety patterns
+        let checkVal = value;
+        if (StepOutputResolver.hasReference(value)) {
+            checkVal = value.replace(StepOutputResolver.REFERENCE_PATTERN, "");
+            if (!checkVal.trim()) {
+                return;
+            }
+        }
+
         for (const pattern of DANGEROUS_PATTERNS) {
-            if (pattern.test(value)) {
+            if (pattern.test(checkVal)) {
                 errors.push({
                     code: "DANGEROUS_VALUE_REJECTED",
                     message: `Value in '${path}' contains unsafe external reference, shell injection, or non-synthetic system identifier: '${value}'`,
